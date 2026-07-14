@@ -42,6 +42,86 @@ app.get('/health', (req, res) => {
   })
 })
 
+// ── POST Register Shop ──
+app.post('/api/register', async (req, res) => {
+  if (!db) return res.status(500).json({ error: 'Database connection is offline.' })
+  const { shopName, ownerName, phone, pin, upiId } = req.body
+  if (!shopName || !phone || !pin) {
+    return res.status(400).json({ error: 'Missing required registration parameters.' })
+  }
+
+  try {
+    const existing = await db.collection('shops').findOne({ _id: phone })
+    if (existing) {
+      return res.status(400).json({ error: 'A shop with this mobile number already exists.' })
+    }
+
+    await db.collection('shops').insertOne({
+      _id: phone,
+      name: shopName,
+      ownerName: ownerName || '',
+      upiId: upiId || '',
+      pin: pin,
+      updatedAt: new Date()
+    })
+
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── POST Login Shop ──
+app.post('/api/login', async (req, res) => {
+  if (!db) return res.status(500).json({ error: 'Database connection is offline.' })
+  const { phone, pin } = req.body
+  if (!phone || !pin) {
+    return res.status(400).json({ error: 'Missing mobile number or PIN.' })
+  }
+
+  try {
+    const shop = await db.collection('shops').findOne({ _id: phone, pin: pin })
+    if (!shop) {
+      return res.status(401).json({ error: 'Invalid mobile number or PIN.' })
+    }
+
+    const itemsDoc = await db.collection('items').find({}).toArray()
+    const items = itemsDoc.map(i => ({
+      id: i._id,
+      name: i.name,
+      category: i.category,
+      pricePaise: i.pricePaise,
+      saleType: i.saleType,
+      unit: i.unit,
+      quantityMilli: i.quantityMilli,
+      lowStockAtMilli: i.lowStockAtMilli,
+      barcode: i.barcode
+    }))
+
+    const salesDoc = await db.collection('sales').find({}).toArray()
+    const sales = salesDoc.map(s => ({
+      id: s._id,
+      ref: s.ref,
+      totalPaise: s.totalPaise,
+      at: s.at,
+      status: s.status,
+      customerCue: s.customerCue,
+      customerPhone: s.customerPhone,
+      pinned: s.pinned,
+      lines: s.lines
+    }))
+
+    res.json({
+      success: true,
+      shop: { name: shop.name, ownerName: shop.ownerName, upiId: shop.upiId, phone: shop._id },
+      items,
+      sales
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // ── POST Sync Outbox Batch Operations ──
 app.post('/api/ops', async (req, res) => {
   if (!db) {

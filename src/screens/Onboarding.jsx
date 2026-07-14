@@ -18,13 +18,14 @@ export function OnboardingScreen() {
   const [loginPhone, setLoginPhone] = useState('')
   const [loginPin, setLoginPin] = useState('')
   const [loginError, setLoginError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   // Validations
   const isPhoneValid = p => /^\d{10}$/.test(p)
   const isPinValid = p => /^\d{4,6}$/.test(p)
   const isUpiValid = u => !u || isValidVpa(u)
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault()
     setRegError('')
     if (!shopName.trim()) {
@@ -44,16 +45,21 @@ export function OnboardingScreen() {
       return
     }
 
-    registerShop({
+    setLoading(true)
+    const res = await registerShop({
       shopName: shopName.trim(),
       ownerName: ownerName.trim(),
       phone: phone.trim(),
       pin: pin.trim(),
       upiId: upiId.trim() || undefined,
     })
+    setLoading(false)
+    if (!res.ok) {
+      setRegError(res.error || 'Registration failed.')
+    }
   }
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
     setLoginError('')
     if (!isPhoneValid(loginPhone)) {
@@ -65,7 +71,9 @@ export function OnboardingScreen() {
       return
     }
 
-    const res = loginShop({ phone: loginPhone, pin: loginPin })
+    setLoading(true)
+    const res = await loginShop({ phone: loginPhone, pin: loginPin })
+    setLoading(false)
     if (!res.ok) {
       setLoginError(res.error || 'Authentication failed.')
     }
@@ -159,8 +167,8 @@ export function OnboardingScreen() {
               </div>
             )}
 
-            <button type="submit" className="btn btn-primary btn-block" disabled={!canSubmit} style={{ marginTop: 10 }}>
-              Create shop &amp; Start
+            <button type="submit" className="btn btn-primary btn-block" disabled={!canSubmit || loading} style={{ marginTop: 10 }}>
+              {loading ? 'Creating shop...' : 'Create shop & Start'}
             </button>
           </form>
         </div>
@@ -217,8 +225,8 @@ export function OnboardingScreen() {
               </div>
             )}
 
-            <button type="submit" className="btn btn-primary btn-block" disabled={!canSubmit} style={{ marginTop: 10 }}>
-              Log in to store
+            <button type="submit" className="btn btn-primary btn-block" disabled={!canSubmit || loading} style={{ marginTop: 10 }}>
+              {loading ? 'Logging in...' : 'Log in to store'}
             </button>
           </form>
         </div>

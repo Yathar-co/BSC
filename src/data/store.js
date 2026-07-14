@@ -120,32 +120,85 @@ export function dispatch(action) {
 }
 
 // ── Session / onboarding (local stand-ins for POST /api/register & /login) ──
-export function registerShop({ shopName, ownerName, phone, pin, upiId }) {
+export async function registerShop({ shopName, ownerName, phone, pin, upiId }) {
   try {
+    const response = await fetch('http://localhost:3000/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shopName, ownerName, phone, pin, upiId })
+    })
+
+    if (!response.ok) {
+      const errData = await response.json()
+      return { ok: false, error: errData.error || 'Failed to register shop on server.' }
+    }
+
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ phone, pin, shopName, ownerName, upiId }))
-  } catch { /* ignore */ }
-  state = {
-    ...emptyState(),
-    onboarded: true,
-    mode: 'account',
-    shop: { name: shopName, ownerName: ownerName || '', upiId: upiId || '', phone },
+    state = {
+      ...emptyState(),
+      onboarded: true,
+      mode: 'account',
+      shop: { name: shopName, ownerName: ownerName || '', upiId: upiId || '', phone },
+    }
+    emit()
+    return { ok: true }
+  } catch (err) {
+    // Offline registration fallback
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ phone, pin, shopName, ownerName, upiId }))
+    state = {
+      ...emptyState(),
+      onboarded: true,
+      mode: 'account',
+      shop: { name: shopName, ownerName: ownerName || '', upiId: upiId || '', phone },
+      outbox: [{ opId: uid(), action: { type: 'updateShop', shop: { name: shopName, ownerName, upiId, phone } } }]
+    }
+    emit()
+    return { ok: true, offline: true }
   }
-  emit()
 }
 
-export function loginShop({ phone, pin }) {
-  let acct = null
-  try { acct = JSON.parse(localStorage.getItem(ACCOUNT_KEY) || 'null') } catch { /* ignore */ }
-  if (!acct || acct.phone !== phone || acct.pin !== pin) return { ok: false, error: 'No account found for that mobile + PIN on this device.' }
-  const existing = load()
-  state = {
-    ...existing,
-    onboarded: true,
-    mode: 'account',
-    shop: { name: acct.shopName, ownerName: acct.ownerName || '', upiId: acct.upiId || '', phone },
+export async function loginShop({ phone, pin }) {
+  try {
+    const response = await fetch('http://localhost:3000/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, pin })
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ phone, pin, shopName: data.shop.name, ownerName: data.shop.ownerName, upiId: data.shop.upiId }))
+      state = {
+        ...state,
+        onboarded: true,
+        mode: 'account',
+        shop: data.shop,
+        items: data.items || [],
+        sales: data.sales || [],
+      }
+      emit()
+      return { ok: true }
+    } else {
+      const errData = await response.json()
+      return { ok: false, error: errData.error || 'Authentication failed.' }
+    }
+  } catch (err) {
+    // Offline fallback
+    let acct = null
+    try { acct = JSON.parse(localStorage.getItem(ACCOUNT_KEY) || 'null') } catch { /* ignore */ }
+    if (!acct || acct.phone !== phone || acct.pin !== pin) {
+      return { ok: false, error: 'Cannot connect to server, and no local account found on this device.' }
+    }
+    const existing = load()
+    state = {
+      ...existing,
+      onboarded: true,
+      mode: 'account',
+      shop: { name: acct.shopName, ownerName: acct.ownerName || '', upiId: acct.upiId || '', phone },
+    }
+    emit()
+    return { ok: true, offline: true }
   }
-  emit()
-  return { ok: true }
 }
 
 export function startDemo() {
