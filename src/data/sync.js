@@ -23,7 +23,8 @@ export async function syncOutbox() {
       console.log(`[Sync] Dispatching batch of ${batch.length} operations to REST API...`)
 
       try {
-        const response = await fetch('http://localhost:3000/api/ops', {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+        const response = await fetch(`${apiUrl}/api/ops`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

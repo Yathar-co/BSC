@@ -122,7 +122,8 @@ export function dispatch(action) {
 // ── Session / onboarding (local stand-ins for POST /api/register & /login) ──
 export async function registerShop({ shopName, ownerName, phone, pin, upiId }) {
   try {
-    const response = await fetch('http://localhost:3000/api/register', {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+    const response = await fetch(`${apiUrl}/api/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ shopName, ownerName, phone, pin, upiId })
@@ -159,7 +160,8 @@ export async function registerShop({ shopName, ownerName, phone, pin, upiId }) {
 
 export async function loginShop({ phone, pin }) {
   try {
-    const response = await fetch('http://localhost:3000/api/login', {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+    const response = await fetch(`${apiUrl}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone, pin })
